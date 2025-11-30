@@ -1,42 +1,50 @@
 import streamlit as st
-from main import handle_message
+import uuid
+from reflect_engine import ReflectEngine
+from firebase_logger import log_message
 
-st.set_page_config(page_title="Reflect-IT Tutor", page_icon="🪞", layout="centered")
+st.set_page_config(page_title="Reflect-IT", page_icon="🪞", layout="wide")
 
-st.title("🪞 Reflect-IT Adaptive Tutor")
-st.caption("Teachable AI that helps you refine your understanding and reasoning through reflection.")
+engine = ReflectEngine()
 
-st.sidebar.header("📚 Select Your Subject")
-subject = st.sidebar.radio(
-    "Choose your subject:",
-    ["Science", "History", "Math"],
-    index=0
+if "session_id" not in st.session_state:
+    st.session_state.session_id = str(uuid.uuid4())  # unique ID per user session
+
+if "history" not in st.session_state:
+    st.session_state.history = []
+
+if "current_subject" not in st.session_state:
+    st.session_state.current_subject = None
+
+st.title("🪞 Reflect-IT")
+
+subject = st.sidebar.selectbox(
+    "Choose a subject:",
+    ["Science", "Math", "History"]
 )
 
-student = st.sidebar.text_input("Student ID (e.g., S1)")
+if subject != st.session_state.current_subject:
+    st.session_state.current_subject = subject
+    st.session_state.history = []
 
-if "chat_history" not in st.session_state:
-    st.session_state.chat_history = []
+    intro = engine.intro_message(subject)
+    st.session_state.history.append(("ai", intro))
+    log_message(st.session_state.session_id, "ai", intro, subject)  # log intro
 
-user_input = st.chat_input("Explain your concept or ask a question...", key="chat_input_main")
+for role, msg in st.session_state.history:
+    st.chat_message(role).write(msg)
+
+user_input = st.chat_input("Type your message…")
 
 if user_input:
-    if student and subject:
-        response = handle_message(student, subject, user_input)
-        st.session_state.chat_history.append(("student", user_input))
-        st.session_state.chat_history.append(("ai", response))
-    else:
-        st.warning("Please enter your Student ID and select a subject first.")
+    # log user message
+    st.session_state.history.append(("user", user_input))
+    log_message(st.session_state.session_id, "user", user_input, subject)
 
-for role, message in st.session_state.chat_history:
-    if role == "student":
-        with st.chat_message("user"):
-            st.markdown(message)
-    else:
-        with st.chat_message("assistant"):
-            st.markdown(message)
+    # generate AI response
+    ai_response = engine.generate(user_input, subject)
+    st.session_state.history.append(("ai", ai_response))
+    log_message(st.session_state.session_id, "ai", ai_response, subject)
 
-st.markdown("---")
-st.markdown("<small>Reflect-IT © 2025</small>", unsafe_allow_html=True)
-
-
+    # display AI response
+    st.chat_message("assistant").write(ai_response)

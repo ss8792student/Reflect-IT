@@ -37,14 +37,16 @@ for role, msg in st.session_state.history:
 user_input = st.chat_input("Type your message…")
 
 if user_input:
-    # log user message
     st.session_state.history.append(("user", user_input))
+    
+    st.chat_message("user").write(user_input)
+    
     log_message(st.session_state.session_id, "user", user_input, subject)
 
-    # generate AI response
     ai_response = engine.generate(user_input, subject)
     st.session_state.history.append(("ai", ai_response))
+    
+    st.chat_message("assistant").write(ai_response)
+    
     log_message(st.session_state.session_id, "ai", ai_response, subject)
 
-    # display AI response
-    st.chat_message("assistant").write(ai_response)
